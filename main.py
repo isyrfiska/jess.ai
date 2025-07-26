@@ -1,6 +1,7 @@
 import os
 import json
 import openai
+import re
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
 
@@ -41,30 +42,37 @@ def handle_training_command(message, user_data):
         except Exception:
             return "❌ Something went wrong. Please use the format: 'when [trigger], reply with [response]'."
     return None
-
+  
 def handle_memory_command(message, user_data):
-    """Handles commands like 'remember...' or 'what is...'"""
-    fact_to_remember = None
-    if message.startswith("remember that"):
-        fact_to_remember = message[13:].strip()
-    elif message.startswith("remember"):
-        fact_to_remember = message[8:].strip()
+    """Handles memory commands like 'remember...', 'what is...', or 'my [thing] is [value]'."""
+    memory = user_data.setdefault("memory", {})
 
-    if fact_to_remember:
-        try:
-            key, value = fact_to_remember.split(" is ", 1)
-            user_data["memory"][key.strip()] = value.strip()
-            return f"✅ Got it. I'll remember that **{key.strip()}** is **{value.strip()}**."
-        except ValueError:
-            return "🤔 To remember that properly, please phrase it like: 'remember [topic] **is** [detail]'."
-    
-    if message.startswith("what is"):
-        key = message.replace("what is", "").replace("?", "").strip()
-        answer = user_data["memory"].get(key)
-        if answer:
-            return f"💡 From my memory, **{key}** is **{answer}**."
-        else:
-            return f"🤔 I don't have a memory for '{key}'."
+    # Pattern: remember [something] is [value]
+    if message.lower().startswith("remember"):
+        fact = message[8:].strip()
+        match = re.match(r"(.?)\s+is\s+(.)", fact)
+        if match:
+            key, value = match.groups()
+            memory[key.strip()] = value.strip()
+            return f"✅ Got it. I'll remember that *{key.strip()}* is *{value.strip()}*."
+        return "❌ Please use the format: 'remember [thing] is [value]'."
+
+    # Pattern: what is [something]?
+    if message.lower().startswith("what is"):
+        key = message[7:].strip(" ?")
+        value = memory.get(key)
+        if value:
+            return f"💡 From my memory, *{key}* is *{value}*."
+        return f"🤔 I don't have a memory for *{key}*."
+
+    # Pattern: my [thing] is [value] — e.g., "my favorite color is blue"
+    if message.lower().startswith("my") and " is " in message:
+        match = re.match(r"my (.?) is (.)", message, re.IGNORECASE)
+        if match:
+            key, value = match.groups()
+            memory[key.strip()] = value.strip()
+            return f"✅ Got it. I'll remember that your *{key.strip()}* is *{value.strip()}*."
+
     return None
 
 def handle_crm_command(message, user_data):
