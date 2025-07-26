@@ -1,10 +1,26 @@
-{
-    "whatsapp:+60183420125": {
-        "profile": {
-            "name": "Asa"
-        },
-        "memory": {},
-        "crm": {},
-        "custom_replies": {}
-    }
-}
+# Replace users.json with a robust database solution
+from sqlalchemy import create_engine, Column, Integer, String, JSON, DateTime
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from datetime import datetime
+
+Base = declarative_base()
+
+class User(Base):
+    __tablename__ = 'users'
+    
+    id = Column(Integer, primary_key=True)
+    phone = Column(String(20), unique=True, nullable=False)
+    memory = Column(JSON, default={})  # For Memory System
+    crm_data = Column(JSON, default={})  # For Micro CRM
+    reply_templates = Column(JSON, default={})  # For Trainable Replies
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+# Database connection (PostgreSQL recommended for production)
+DATABASE_URL = "postgresql://user:password@localhost/jessai"
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Initialize database
+Base.metadata.create_all(bind=engine)
